@@ -3,6 +3,13 @@ import { io } from 'socket.io-client'
 import './App.css'
 const { RTCPeerConnection, RTCSessionDescription } = window
 
+const iceServers = {
+	iceServers: [
+		{ urls: 'stun:stun.l.google.com:19302' },
+		{ urls: 'stun:stun1.l.google.com:19302' }
+	]
+}
+
 let socket, peerConnection
 
 let isAlreadyCalling = false
@@ -22,7 +29,7 @@ function App() {
 	}
 
 	useEffect(() => {
-		peerConnection = new RTCPeerConnection()
+		peerConnection = new RTCPeerConnection(iceServers)
 
 		socket = io.connect('https://videopegasus.herokuapp.com')
 	}, [])
@@ -41,10 +48,6 @@ function App() {
 		})
 
 		socket.on('call-made', async (data) => {
-			console.log('call-made')
-			console.log(
-				`User "Socket: ${data.socket}" wants to call you. Do accept this call?`
-			)
 			if (getCalled) {
 				const confirmed = window.confirm(
 					`User "Socket: ${data.socket}" wants to call you. Do accept this call?`
