@@ -1,8 +1,24 @@
-import { useEffect, useState } from 'react'
-import { io } from 'socket.io-client'
 import './App.css'
-const { RTCPeerConnection, RTCSessionDescription } = window
+import { io } from 'socket.io-client'
 
+import { useEffect } from 'react'
+
+// DOM elements.
+
+let localStream
+let remoteStream
+let isRoomCreator
+let rtcPeerConnection // Connection between the local device and the remote peer.
+let roomId
+
+let localVideoComponent, remoteVideoComponent, socket
+
+const mediaConstraints = {
+	audio: true,
+	video: { width: 1280, height: 720 }
+}
+
+// Free public STUN servers provided by Google.
 const iceServers = {
 	iceServers: [
 		{ urls: 'stun:stun.l.google.com:19302' },
@@ -10,135 +26,161 @@ const iceServers = {
 	]
 }
 
-let socket, peerConnection
-
-let isAlreadyCalling = false
-let getCalled = false
 function App() {
-	const [users, setUsers] = useState([])
+	function joinRoom(room) {
+		if (roomId === '') {
+			alert('Please type a room ID')
+		} else {
+			console.log('joining Room: ', roomId)
+			socket.emit('join', roomId)
+		}
+	}
 
-	async function callUser(socketId) {
-		console.log('calling user', socketId)
-		const offer = await peerConnection.createOffer()
-		await peerConnection.setLocalDescription(new RTCSessionDescription(offer))
+	async function setLocalStream(mediaConstraints) {
+		let stream
+		try {
+			stream = await navigator.mediaDevices.getUserMedia(mediaConstraints)
+		} catch (error) {
+			console.error('Could not get user media', error)
+		}
 
-		socket.emit('call-user', {
-			offer,
-			to: socketId
+		localStream = stream
+		localVideoComponent.srcObject = stream
+	}
+
+	function addLocalTracks(rtcPeerConnection) {
+		localStream.getTracks().forEach((track) => {
+			rtcPeerConnection.addTrack(track, localStream)
 		})
 	}
 
-	useEffect(() => {
-		peerConnection = new RTCPeerConnection(iceServers)
-
-		socket = io.connect('https://videopegasus.herokuapp.com')
-	}, [])
-
-	useEffect(() => {
-		socket.on('update-user-list', ({ users }) => {
-			console.log('serUsers', users)
-			setUsers(users)
-		})
-		socket.on('remove-user', ({ socketId }) => {
-			const elToRemove = document.getElementById(socketId)
-
-			if (elToRemove) {
-				elToRemove.remove()
-			}
-		})
-
-		socket.on('call-made', async (data) => {
-			if (getCalled) {
-				const confirmed = window.confirm(
-					`User "Socket: ${data.socket}" wants to call you. Do accept this call?`
-				)
-
-				if (!confirmed) {
-					socket.emit('reject-call', {
-						from: data.socket
-					})
-
-					return
-				}
-			}
-
-			await peerConnection.setRemoteDescription(
-				new RTCSessionDescription(data.offer)
-			)
-			const answer = await peerConnection.createAnswer()
-			await peerConnection.setLocalDescription(
-				new RTCSessionDescription(answer)
-			)
-
-			socket.emit('make-answer', {
-				answer,
-				to: data.socket
-			})
-			getCalled = true
-		})
-
-		socket.on('answer-made', async (data) => {
-			await peerConnection.setRemoteDescription(
-				new RTCSessionDescription(data.answer)
-			)
-
-			if (!isAlreadyCalling) {
-				callUser(data.socket)
-				isAlreadyCalling = true
-			}
-		})
-
-		socket.on('call-rejected', (data) => {
-			alert(`User: "Socket: ${data.socket}" rejected your call.`)
-			// unselectUsersFromList()
-		})
-
-		peerConnection.ontrack = function ({ streams: [stream] }) {
-			const remoteVideo = document.getElementById('remote-video')
-			if (remoteVideo) {
-				remoteVideo.srcObject = stream
-			}
+	async function createOffer(rtcPeerConnection) {
+		let sessionDescription
+		try {
+			sessionDescription = await rtcPeerConnection.createOffer()
+			rtcPeerConnection.setLocalDescription(sessionDescription)
+		} catch (error) {
+			console.error(error)
 		}
 
-		navigator.getUserMedia(
-			{ video: true, audio: true },
-			(stream) => {
-				const localVideo = document.getElementById('local-video')
-				if (localVideo) {
-					localVideo.srcObject = stream
-				}
+		socket.emit('webrtc_offer', {
+			type: 'webrtc_offer',
+			sdp: sessionDescription,
+			roomId
+		})
+	}
 
-				stream
-					.getTracks()
-					.forEach((track) => peerConnection.addTrack(track, stream))
-			},
-			(error) => {
-				console.warn(error.message)
+	async function createAnswer(rtcPeerConnection) {
+		let sessionDescription
+		try {
+			sessionDescription = await rtcPeerConnection.createAnswer()
+			rtcPeerConnection.setLocalDescription(sessionDescription)
+		} catch (error) {
+			console.error(error)
+		}
+
+		socket.emit('webrtc_answer', {
+			type: 'webrtc_answer',
+			sdp: sessionDescription,
+			roomId
+		})
+	}
+
+	function setRemoteStream(event) {
+		console.log('setRemoteStream', event)
+		remoteVideoComponent.srcObject = event.streams[0]
+		remoteStream = event.stream
+	}
+
+	function sendIceCandidate(event) {
+		if (event.candidate) {
+			socket.emit('webrtc_ice_candidate', {
+				roomId,
+				label: event.candidate.sdpMLineIndex,
+				candidate: event.candidate.candidate
+			})
+		}
+	}
+	useEffect(() => {
+		const urlParams = new URLSearchParams(window.location?.search)
+		roomId = urlParams?.get('roomId')
+		const isDev = process.env.NODE_ENV === 'development'
+		const urlBackend = isDev
+			? 'http://localhost:5000'
+			: 'https://videopegasus.herokuapp.com'
+
+		console.log(urlBackend)
+		console.log('urlBackend', urlBackend)
+		socket = io.connect(urlBackend)
+		socket.on('room_created', async () => {
+			console.log('Socket event callback: room_created')
+
+			await setLocalStream(mediaConstraints)
+			isRoomCreator = true
+		})
+
+		socket.on('room_joined', async () => {
+			console.log('Socket event callback: room_joined')
+
+			await setLocalStream(mediaConstraints)
+			socket.emit('start_call', roomId)
+		})
+
+		socket.on('full_room', () => {
+			console.log('Socket event callback: full_room')
+
+			alert('The room is full, please try another one')
+		})
+
+		socket.on('start_call', async () => {
+			console.log('Socket event callback: start_call')
+
+			if (isRoomCreator) {
+				rtcPeerConnection = new RTCPeerConnection(iceServers)
+				addLocalTracks(rtcPeerConnection)
+				rtcPeerConnection.ontrack = setRemoteStream
+				rtcPeerConnection.onicecandidate = sendIceCandidate
+				await createOffer(rtcPeerConnection)
 			}
-		)
+		})
+
+		socket.on('webrtc_offer', async (event) => {
+			console.log('Socket event callback: webrtc_offer')
+			console.log(event)
+			if (!isRoomCreator) {
+				rtcPeerConnection = new RTCPeerConnection(iceServers)
+				addLocalTracks(rtcPeerConnection)
+				rtcPeerConnection.ontrack = setRemoteStream
+				rtcPeerConnection.onicecandidate = sendIceCandidate
+				rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
+				await createAnswer(rtcPeerConnection)
+			}
+		})
+
+		socket.on('webrtc_answer', (event) => {
+			console.log('Socket event callback: webrtc_answer')
+
+			rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
+		})
+
+		socket.on('webrtc_ice_candidate', (event) => {
+			// ICE candidate configuration.
+			var candidate = new RTCIceCandidate({
+				sdpMLineIndex: event.label,
+				candidate: event.candidate
+			})
+			rtcPeerConnection.addIceCandidate(candidate)
+		})
+
+		localVideoComponent = document.getElementById('local-video')
+		remoteVideoComponent = document.getElementById('remote-video')
 	}, [])
-
-	const handleClick = (e) => callUser(e.target.name)
-
-	console.log(users)
-
 	return (
-		<div className='App'>
-			<div>
-				<button name={users[0]} onClick={handleClick}>
-					Call user {users[0]}
-				</button>
-				<ul>
-					{/* {users?.map((user) => (
-						<li key={user} id={user} onClick={handleClick}>
-							{user}
-						</li>
-					))} */}
-				</ul>
-			</div>
-			<div>
-				<video autoPlay className='remote-video' id='remote-video'></video>
-				<video autoPlay muted className='local-video' id='local-video'></video>
+		<div>
+			<button onClick={() => joinRoom()}>Join Room</button>
+			<div className='App'>
+				<video id='local-video' autoPlay='autoplay' muted='muted'></video>
+				<video id='remote-video' autoPlay='autoplay' muted='muted'></video>
 			</div>
 		</div>
 	)
