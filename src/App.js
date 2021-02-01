@@ -21,8 +21,19 @@ const mediaConstraints = {
 // Free public STUN servers provided by Google.
 const iceServers = {
 	iceServers: [
-		{ urls: 'stun:stun.l.google.com:19302' },
-		{ urls: 'stun:stun1.l.google.com:19302' }
+		{
+			urls: ['stun:74.125.247.128:3478', 'stun:[2001:4860:4864:4:8000::]:3478']
+		},
+		{
+			urls: [
+				'turn:74.125.247.128:3478?transport=udp',
+				'turn:[2001:4860:4864:4:8000::]:3478?transport=udp',
+				'turn:74.125.247.128:3478?transport=tcp',
+				'turn:[2001:4860:4864:4:8000::]:3478?transport=tcp'
+			],
+			username: 'CIrk5oAGEgacFpHAutMYqvGggqMKIICjBTAK',
+			credential: 'knzI3KAvzO6S/gITDdBqbBdfEtE='
+		}
 	]
 }
 
