@@ -1,7 +1,7 @@
 import './App.css'
 import { io } from 'socket.io-client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 // DOM elements.
 
@@ -18,26 +18,10 @@ const mediaConstraints = {
 	video: { width: 1280, height: 720 }
 }
 
-// Free public STUN servers provided by Google.
-const iceServers = {
-	iceServers: [
-		{
-			urls: ['stun:74.125.247.128:3478', 'stun:[2001:4860:4864:4:8000::]:3478']
-		},
-		{
-			urls: [
-				'turn:74.125.247.128:3478?transport=udp',
-				'turn:[2001:4860:4864:4:8000::]:3478?transport=udp',
-				'turn:74.125.247.128:3478?transport=tcp',
-				'turn:[2001:4860:4864:4:8000::]:3478?transport=tcp'
-			],
-			username: 'CIrk5oAGEgacFpHAutMYqvGggqMKIICjBTAK',
-			credential: 'knzI3KAvzO6S/gITDdBqbBdfEtE='
-		}
-	]
-}
-
 function App() {
+	const [hasRemoteVideo, setHasRemoteVideo] = useState(false)
+	const [hasLocalVideo, setHasLocalVideo] = useState(false)
+	const [iceServers, setIceServers] = useState(null)
 	function joinRoom(room) {
 		if (roomId === '') {
 			alert('Please type a room ID')
@@ -51,6 +35,7 @@ function App() {
 		let stream
 		try {
 			stream = await navigator.mediaDevices.getUserMedia(mediaConstraints)
+			setHasLocalVideo(true)
 		} catch (error) {
 			console.error('Could not get user media', error)
 		}
@@ -98,9 +83,8 @@ function App() {
 	}
 
 	function setRemoteStream(event) {
-		console.log('setRemoteStream', event)
 		remoteVideoComponent.srcObject = event.streams[0]
-		remoteStream = event.stream
+		remoteStream = event.streams[0]
 	}
 
 	function sendIceCandidate(event) {
@@ -112,7 +96,25 @@ function App() {
 			})
 		}
 	}
+
+	async function startCall() {
+		rtcPeerConnection = new RTCPeerConnection(iceServers)
+		addLocalTracks(rtcPeerConnection)
+		rtcPeerConnection.ontrack = setRemoteStream
+		rtcPeerConnection.onicecandidate = sendIceCandidate
+		setHasRemoteVideo(true)
+		await createOffer(rtcPeerConnection)
+	}
+	async function createRoom(event) {
+		rtcPeerConnection = new RTCPeerConnection(iceServers)
+		addLocalTracks(rtcPeerConnection)
+		rtcPeerConnection.ontrack = setRemoteStream
+		rtcPeerConnection.onicecandidate = sendIceCandidate
+		rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
+		await createAnswer(rtcPeerConnection)
+	}
 	useEffect(() => {
+		if (!iceServers) return
 		const urlParams = new URLSearchParams(window.location?.search)
 		roomId = urlParams?.get('roomId')
 		const isDev = process.env.NODE_ENV === 'development'
@@ -143,28 +145,23 @@ function App() {
 			alert('The room is full, please try another one')
 		})
 
-		socket.on('start_call', async () => {
+		socket.on('start_call', () => {
 			console.log('Socket event callback: start_call')
-
 			if (isRoomCreator) {
-				rtcPeerConnection = new RTCPeerConnection(iceServers)
-				addLocalTracks(rtcPeerConnection)
-				rtcPeerConnection.ontrack = setRemoteStream
-				rtcPeerConnection.onicecandidate = sendIceCandidate
-				await createOffer(rtcPeerConnection)
+				startCall()
 			}
+		})
+
+		socket.on('stop_video', () => {
+			console.log('Socket event callback: stop_video')
+			// startCall()
+			setHasRemoteVideo(false)
 		})
 
 		socket.on('webrtc_offer', async (event) => {
 			console.log('Socket event callback: webrtc_offer')
-			console.log(event)
 			if (!isRoomCreator) {
-				rtcPeerConnection = new RTCPeerConnection(iceServers)
-				addLocalTracks(rtcPeerConnection)
-				rtcPeerConnection.ontrack = setRemoteStream
-				rtcPeerConnection.onicecandidate = sendIceCandidate
-				rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
-				await createAnswer(rtcPeerConnection)
+				createRoom(event)
 			}
 		})
 
@@ -185,10 +182,37 @@ function App() {
 
 		localVideoComponent = document.getElementById('local-video')
 		remoteVideoComponent = document.getElementById('remote-video')
+	}, [iceServers])
+
+	useEffect(() => {
+		fetch('/api/iceServer')
+			.then((value) => value.json())
+			.then((value) => {
+				setIceServers({ ...value.iceServers })
+			})
 	}, [])
+
+	const handleStop = () => {
+		if (hasLocalVideo) {
+			socket.emit('stop_video', roomId)
+			if (localStream) localStream.getVideoTracks()[0].enabled = false
+			// localStream?.getVideoTracks()?.[0]?.stop()
+			setHasLocalVideo(false)
+		} else {
+			if (localStream) localStream.getVideoTracks()[0].enabled = true
+			socket.emit('start_call', roomId)
+			// setLocalStream(mediaConstraints)
+			// startCall()
+			setHasLocalVideo(true)
+		}
+	}
+
 	return (
 		<div>
 			<button onClick={() => joinRoom()}>Join Room</button>
+			<button onClick={handleStop}>
+				{hasLocalVideo ? 'Stop' : 'Start'} video
+			</button>
 			<div className='App'>
 				<video id='local-video' autoPlay='autoplay' muted='muted'></video>
 				<video id='remote-video' autoPlay='autoplay'></video>
