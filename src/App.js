@@ -188,7 +188,24 @@ function App() {
 		fetch('/api/iceServer')
 			.then((value) => value.json())
 			.then((value) => {
-				setIceServers({ ...value.iceServers })
+				// const iceServers = {
+				// 	iceServers: [
+				// 		{
+				// 			urls: ['stun:74.125.247.128:3478', 'stun:[2001:4860:4864:4:8000::]:3478']
+				// 		},
+				// 		{
+				// 			urls: [
+				// 				'turn:74.125.247.128:3478?transport=udp',
+				// 				'turn:[2001:4860:4864:4:8000::]:3478?transport=udp',
+				// 				'turn:74.125.247.128:3478?transport=tcp',
+				// 				'turn:[2001:4860:4864:4:8000::]:3478?transport=tcp'
+				// 			],
+				// 			username: 'CIrk5oAGEgacFpHAutMYqvGggqMKIICjBTAK',
+				// 			credential: 'knzI3KAvzO6S/gITDdBqbBdfEtE='
+				// 		}
+				// 	]
+				// }
+				setIceServers({ iceServers: value.iceServers })
 			})
 	}, [])
 
