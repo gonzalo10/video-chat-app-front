@@ -191,7 +191,7 @@ function App() {
 			<button onClick={() => joinRoom()}>Join Room</button>
 			<div className='App'>
 				<video id='local-video' autoPlay='autoplay' muted='muted'></video>
-				<video id='remote-video' autoPlay='autoplay' muted='muted'></video>
+				<video id='remote-video' autoPlay='autoplay'></video>
 			</div>
 		</div>
 	)
