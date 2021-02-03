@@ -1,15 +1,16 @@
-import './App.css'
+import { useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 
-import { useEffect, useState } from 'react'
+import ChatRoom from './components/chat-room'
+import Login from './components/login'
 
-// DOM elements.
+import './App.css'
 
 let localStream
-let remoteStream
 let isRoomCreator
-let rtcPeerConnection // Connection between the local device and the remote peer.
+let rtcPeerConnection
 let roomId
+let dataChannel
 
 let localVideoComponent, remoteVideoComponent, socket
 
@@ -19,17 +20,22 @@ const mediaConstraints = {
 }
 
 function App() {
-	const [hasRemoteVideo, setHasRemoteVideo] = useState(false)
+	const [roomName, setRoomName] = useState()
+	const [chats, setChats] = useState([])
+	const [error, setError] = useState('')
 	const [hasLocalVideo, setHasLocalVideo] = useState(false)
 	const [iceServers, setIceServers] = useState(null)
-	function joinRoom(room) {
-		if (roomId === '') {
+	function joinRoom() {
+		if (roomName === '') {
 			alert('Please type a room ID')
 		} else {
-			console.log('joining Room: ', roomId)
-			socket.emit('join', roomId)
+			socket.emit('join', roomName)
 		}
 	}
+
+	// useEffect(() => {
+	// 	setUpConnection()
+	// }, [roomName])
 
 	async function setLocalStream(mediaConstraints) {
 		let stream
@@ -84,7 +90,6 @@ function App() {
 
 	function setRemoteStream(event) {
 		remoteVideoComponent.srcObject = event.streams[0]
-		remoteStream = event.streams[0]
 	}
 
 	function sendIceCandidate(event) {
@@ -102,8 +107,23 @@ function App() {
 		addLocalTracks(rtcPeerConnection)
 		rtcPeerConnection.ontrack = setRemoteStream
 		rtcPeerConnection.onicecandidate = sendIceCandidate
-		setHasRemoteVideo(true)
+		dataChannel = rtcPeerConnection.createDataChannel('channel1', {
+			reliable: true
+		})
+		rtcPeerConnection.ondatachannel = receiveChannelCallback
+		dataChannel.onmessage = onReceiveMessageCallback
+		console.log('startCall', { dataChannel })
 		await createOffer(rtcPeerConnection)
+	}
+
+	function onReceiveMessageCallback(event) {
+		dataChannel.value = event.data
+		setChats((prevEvents) => [...prevEvents, event])
+	}
+
+	function receiveChannelCallback(event) {
+		dataChannel = event.channel
+		dataChannel.onmessage = onReceiveMessageCallback
 	}
 	async function createRoom(event) {
 		rtcPeerConnection = new RTCPeerConnection(iceServers)
@@ -111,55 +131,44 @@ function App() {
 		rtcPeerConnection.ontrack = setRemoteStream
 		rtcPeerConnection.onicecandidate = sendIceCandidate
 		rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
+		dataChannel = rtcPeerConnection.createDataChannel('channel1', {
+			reliable: true
+		})
+		rtcPeerConnection.ondatachannel = receiveChannelCallback
+		dataChannel.onmessage = onReceiveMessageCallback
 		await createAnswer(rtcPeerConnection)
 	}
-	useEffect(() => {
+
+	async function setUpConnection() {
+		console.log(iceServers)
 		if (!iceServers) return
-		const urlParams = new URLSearchParams(window.location?.search)
-		roomId = urlParams?.get('roomId')
 		const isDev = process.env.NODE_ENV === 'development'
 		const urlBackend = isDev
 			? 'http://localhost:5000'
 			: 'https://videopegasus.herokuapp.com'
 
-		console.log(urlBackend)
-		console.log('urlBackend', urlBackend)
 		socket = io.connect(urlBackend)
 		socket.on('room_created', async () => {
-			console.log('Socket event callback: room_created')
-
 			await setLocalStream(mediaConstraints)
 			isRoomCreator = true
 		})
 
 		socket.on('room_joined', async () => {
-			console.log('Socket event callback: room_joined')
-
 			await setLocalStream(mediaConstraints)
 			socket.emit('start_call', roomId)
 		})
 
 		socket.on('full_room', () => {
-			console.log('Socket event callback: full_room')
-
 			alert('The room is full, please try another one')
 		})
 
 		socket.on('start_call', () => {
-			console.log('Socket event callback: start_call')
 			if (isRoomCreator) {
 				startCall()
 			}
 		})
 
-		socket.on('stop_video', () => {
-			console.log('Socket event callback: stop_video')
-			// startCall()
-			setHasRemoteVideo(false)
-		})
-
 		socket.on('webrtc_offer', async (event) => {
-			console.log('Socket event callback: webrtc_offer')
 			if (!isRoomCreator) {
 				createRoom(event)
 			}
@@ -167,12 +176,10 @@ function App() {
 
 		socket.on('webrtc_answer', (event) => {
 			console.log('Socket event callback: webrtc_answer')
-
 			rtcPeerConnection.setRemoteDescription(new RTCSessionDescription(event))
 		})
 
 		socket.on('webrtc_ice_candidate', (event) => {
-			// ICE candidate configuration.
 			var candidate = new RTCIceCandidate({
 				sdpMLineIndex: event.label,
 				candidate: event.candidate
@@ -182,60 +189,58 @@ function App() {
 
 		localVideoComponent = document.getElementById('local-video')
 		remoteVideoComponent = document.getElementById('remote-video')
-	}, [iceServers])
+		joinRoom()
+	}
 
 	useEffect(() => {
+		const urlParams = new URLSearchParams(window.location?.search)
+		roomId = urlParams?.get('roomId')
+		if (roomId) setRoomName(roomId)
 		fetch('/api/iceServer')
 			.then((value) => value.json())
-			.then((value) => {
-				// const iceServers = {
-				// 	iceServers: [
-				// 		{
-				// 			urls: ['stun:74.125.247.128:3478', 'stun:[2001:4860:4864:4:8000::]:3478']
-				// 		},
-				// 		{
-				// 			urls: [
-				// 				'turn:74.125.247.128:3478?transport=udp',
-				// 				'turn:[2001:4860:4864:4:8000::]:3478?transport=udp',
-				// 				'turn:74.125.247.128:3478?transport=tcp',
-				// 				'turn:[2001:4860:4864:4:8000::]:3478?transport=tcp'
-				// 			],
-				// 			username: 'CIrk5oAGEgacFpHAutMYqvGggqMKIICjBTAK',
-				// 			credential: 'knzI3KAvzO6S/gITDdBqbBdfEtE='
-				// 		}
-				// 	]
-				// }
-				setIceServers({ iceServers: value.iceServers })
-			})
+			.then((value) => setIceServers({ iceServers: value.iceServers }))
 	}, [])
 
 	const handleStop = () => {
 		if (hasLocalVideo) {
-			socket.emit('stop_video', roomId)
 			if (localStream) localStream.getVideoTracks()[0].enabled = false
-			// localStream?.getVideoTracks()?.[0]?.stop()
 			setHasLocalVideo(false)
 		} else {
 			if (localStream) localStream.getVideoTracks()[0].enabled = true
-			socket.emit('start_call', roomId)
-			// setLocalStream(mediaConstraints)
-			// startCall()
 			setHasLocalVideo(true)
 		}
 	}
 
-	return (
-		<div>
-			<button onClick={() => joinRoom()}>Join Room</button>
-			<button onClick={handleStop}>
-				{hasLocalVideo ? 'Stop' : 'Start'} video
-			</button>
-			<div className='App'>
+	const handleSendmessage = (text) => {
+		dataChannel.send(text)
+	}
+
+	// function ConnectVideo() {}
+
+	useEffect(() => {
+		roomName && iceServers && setUpConnection()
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [roomName, iceServers])
+
+	if (roomName)
+		return (
+			<>
+				{/* <button onClick={ConnectVideo}>Connect</button> */}
+				<ChatRoom
+					userName={roomName}
+					peerIds={['']}
+					submitChat={handleSendmessage}
+					chats={chats}
+				/>
 				<video id='local-video' autoPlay='autoplay' muted='muted'></video>
 				<video id='remote-video' autoPlay='autoplay'></video>
-			</div>
-		</div>
-	)
+				<button onClick={handleStop}>
+					{hasLocalVideo ? 'Stop' : 'Start'} video
+				</button>
+			</>
+		)
+
+	return <Login error={error} setRoomName={setRoomName} />
 }
 
 export default App
