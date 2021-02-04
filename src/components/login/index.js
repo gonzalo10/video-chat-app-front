@@ -60,7 +60,7 @@ const LoginInput = styled.input`
 	background: none;
 	font-size: 18px;
 	color: #555;
-	padding: 20px 10px 20px 20px; ;
+	padding: 20px 10px 20px 20px;
 `
 
 const LoginButton = styled.button`

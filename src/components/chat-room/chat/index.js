@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
 const ChatContainer = styled.div`
-	background-color: #f3f6fb;
 	border-radius: 10px;
 	height: 100%;
 	width: 100%;
-	box-shadow: 0 2px 5px -1px rgb(50 50 93 / 25%),
-		0 1px 3px -1px rgb(0 0 0 / 30%);
+	border-radius: 50px;
+	background: linear-gradient(145deg, #dbdde2, #ffffff);
+	box-shadow: 35px 35px 70px #cfd1d5, -35px -35px 70px #ffffff;
+	margin-top: 1em;
 `;
 
 const Chatata = styled.div`
@@ -47,14 +48,14 @@ const ChatInputWrapper = styled.form`
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	bottom: 2em;
-	width: 85%;
-	left: 5%;
+	bottom: 1em;
+	width: 80%;
+	left: 10%;
 	background-color: white;
-	padding: 1em;
+	padding: 0.5em;
 	border-radius: 10px;
-	box-shadow: 0 6px 12px -2px rgba(50, 50, 93, 0.25),
-		0 3px 7px -3px rgba(0, 0, 0, 0.3);
+	/* box-shadow: 0 6px 12px -2px rgba(50, 50, 93, 0.25),
+		0 3px 7px -3px rgba(0, 0, 0, 0.3); */
 
 	input {
 		width: 100%;
@@ -64,6 +65,9 @@ const ChatInputWrapper = styled.form`
 		padding: 8px;
 		padding-left: 12px;
 		outline: none;
+		border-radius: 50px;
+		background: #f3f6fb;
+		box-shadow: inset 29px 29px 57px #d3d6da, inset -29px -29px 57px #ffffff;
 		&:focus {
 			border: 1px solid #e8e8e8;
 			box-shadow: 0 0 3pt 2pt #faaf4c;
@@ -71,7 +75,7 @@ const ChatInputWrapper = styled.form`
 	}
 	button {
 		font-size: 16px;
-		margin-left: 20px;
+		margin-left: 10px;
 		height: 100%;
 		border-radius: 6px;
 		padding: 9px 14px;
