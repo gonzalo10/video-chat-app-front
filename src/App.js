@@ -8,7 +8,6 @@ import Login from './components/login'
 let localStream
 let isRoomCreator
 let rtcPeerConnection
-let roomId
 let dataChannel
 
 let localVideoComponent, remoteVideoComponent, socket
@@ -82,13 +81,10 @@ function App() {
 		if (roomName === '') {
 			alert('Please type a room ID')
 		} else {
+			console.log({ roomName })
 			socket.emit('join', roomName)
 		}
 	}
-
-	// useEffect(() => {
-	// 	setUpConnection()
-	// }, [roomName])
 
 	async function setLocalStream(mediaConstraints) {
 		let stream
@@ -121,7 +117,7 @@ function App() {
 		socket.emit('webrtc_offer', {
 			type: 'webrtc_offer',
 			sdp: sessionDescription,
-			roomId
+			roomId: roomName
 		})
 	}
 
@@ -137,7 +133,7 @@ function App() {
 		socket.emit('webrtc_answer', {
 			type: 'webrtc_answer',
 			sdp: sessionDescription,
-			roomId
+			roomId: roomName
 		})
 	}
 
@@ -148,7 +144,7 @@ function App() {
 	function sendIceCandidate(event) {
 		if (event.candidate) {
 			socket.emit('webrtc_ice_candidate', {
-				roomId,
+				roomId: roomName,
 				label: event.candidate.sdpMLineIndex,
 				candidate: event.candidate.candidate
 			})
@@ -193,7 +189,6 @@ function App() {
 	}
 
 	async function setUpConnection() {
-		console.log(iceServers)
 		if (!iceServers) return
 		const isDev = process.env.NODE_ENV === 'development'
 		const urlBackend = isDev
@@ -208,7 +203,7 @@ function App() {
 
 		socket.on('room_joined', async () => {
 			await setLocalStream(mediaConstraints)
-			socket.emit('start_call', roomId)
+			socket.emit('start_call', roomName)
 		})
 
 		socket.on('full_room', () => {
@@ -242,12 +237,13 @@ function App() {
 
 		localVideoComponent = document.getElementById('local-video')
 		remoteVideoComponent = document.getElementById('remote-video')
+
 		joinRoom()
 	}
 
 	useEffect(() => {
 		const urlParams = new URLSearchParams(window.location?.search)
-		roomId = urlParams?.get('roomId')
+		const roomId = urlParams?.get('roomId')
 		if (roomId) setRoomName(roomId)
 		fetch('/api/iceServer')
 			.then((value) => value.json())
@@ -268,17 +264,18 @@ function App() {
 		dataChannel.send(text)
 	}
 
-	// function ConnectVideo() {}
-
 	useEffect(() => {
-		roomName && iceServers && setUpConnection()
+		if (roomName && iceServers) {
+			console.log('setUpConnection')
+			setUpConnection()
+		}
+
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [roomName, iceServers])
 
 	if (roomName)
 		return (
 			<VideoChatContainer>
-				{/* <button onClick={ConnectVideo}>Connect</button> */}
 				<VideoContainer>
 					<VideoChatSender
 						id='local-video'
