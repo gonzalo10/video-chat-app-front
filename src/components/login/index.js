@@ -13,56 +13,71 @@ const LoginContainer = styled.div`
 	padding-top: 27vh;
 `
 
+const LoginCard = styled.div`
+	width: 400px;
+	height: 300px;
+	padding: 60px 35px 35px 35px;
+	border-radius: 40px;
+	background: #ecf0f3;
+	box-shadow: 13px 13px 20px #cbced1, -13px -13px 20px #ffffff;
+`
+
 const Title = styled.h1`
 	margin: 0;
 	color: #faaf4c;
 	letter-spacing: 0.2rem;
-	font-size: 60px;
+	font-size: 40px;
 	word-spacing: 0.7rem;
 	text-transform: uppercase;
 	padding-bottom: 32px;
 	font-family: 'Roboto', sans-serif;
+	text-align: center;
 `
 const SubTitle = styled.h2`
 	margin: 0;
 	font-size: 24px;
 	padding-bottom: 3em;
+	color: #598ae4;
+	text-align: center;
 `
 
 const LoginForm = styled.form`
 	display: flex;
 	justify-content: space-evenly;
 	align-items: center;
-	width: 35%;
 	padding-bottom: 2em;
+	height: 100px;
+`
+
+const InputWrapper = styled.div`
+	border-radius: 25px;
+	box-shadow: inset 8px 8px 8px #cbced1, inset -8px -8px 8px #ffffff;
 `
 
 const LoginInput = styled.input`
-	border-radius: 40px;
-	padding: 12px;
-	border: 1px solid whitesmoke;
-	width: 265px;
-	box-shadow: 0 2px 5px -1px rgb(50 50 93 / 25%),
-		0 1px 3px -1px rgb(0 0 0 / 30%);
-	font-size: 23px;
-	padding-left: 30px;
+	border: none;
 	outline: none;
-	&:focus {
-		box-shadow: 0 0 3pt 2pt #faaf4c;
-	}
+	background: none;
+	font-size: 18px;
+	color: #555;
+	padding: 20px 10px 20px 20px; ;
 `
 
 const LoginButton = styled.button`
-	border-radius: 50px;
-	padding: 11px;
+	outline: none;
+	border: none;
+	cursor: pointer;
+	width: 120px;
 	height: 60px;
-	border: 1px solid #efa544;
-	box-shadow: 0 2px 5px -1px rgb(50 50 93 / 25%),
-		0 1px 3px -1px rgb(0 0 0 / 30%);
+	border-radius: 30px;
 	font-size: 20px;
-	background: #faaf4c;
-	color: white;
 	font-weight: 700;
+	font-family: 'Lato', sans-serif;
+	color: #fff;
+	text-align: center;
+	background: #5796e3;
+	box-shadow: 3px 3px 8px #b1b1b1, -3px -3px 8px #ffffff;
+	transition: 0.5s;
 `
 
 const Login = ({ setRoomName, error }) => {
@@ -82,13 +97,17 @@ const Login = ({ setRoomName, error }) => {
 	return (
 		<LoginContainer>
 			<BgShapes />
-			<Title>Talarian Chat</Title>
-			<SubTitle>Welcome to your Anonymous Chat App</SubTitle>
-			<LoginForm onSubmit={submitLogin}>
-				<LoginInput placeholder='Username' onChange={handleUserName} />
-				<LoginButton type='submit'>GO!</LoginButton>
-			</LoginForm>
-			{error && error}
+			<LoginCard>
+				<Title>Talarian Chat</Title>
+				<SubTitle>Anonymous Chat App</SubTitle>
+				<LoginForm onSubmit={submitLogin}>
+					<InputWrapper>
+						<LoginInput placeholder='Room name' onChange={handleUserName} />
+					</InputWrapper>
+					<LoginButton type='submit'>Join!</LoginButton>
+				</LoginForm>
+				{error && error}
+			</LoginCard>
 		</LoginContainer>
 	)
 }
