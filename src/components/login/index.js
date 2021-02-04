@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import styled from 'styled-components'
+import { useState } from 'react';
+import styled from 'styled-components';
 
-import BgShapes from './bg-shapes'
+import BgShapes from './bg-shapes';
 
 const LoginContainer = styled.div`
 	display: flex;
@@ -11,7 +11,7 @@ const LoginContainer = styled.div`
 	height: 100%;
 	overflow: hidden;
 	padding-top: 27vh;
-`
+`;
 
 const Title = styled.h1`
 	margin: 0;
@@ -22,12 +22,12 @@ const Title = styled.h1`
 	text-transform: uppercase;
 	padding-bottom: 32px;
 	font-family: 'Roboto', sans-serif;
-`
+`;
 const SubTitle = styled.h2`
 	margin: 0;
 	font-size: 24px;
 	padding-bottom: 3em;
-`
+`;
 
 const LoginForm = styled.form`
 	display: flex;
@@ -35,7 +35,7 @@ const LoginForm = styled.form`
 	align-items: center;
 	width: 35%;
 	padding-bottom: 2em;
-`
+`;
 
 const LoginInput = styled.input`
 	border-radius: 40px;
@@ -50,7 +50,7 @@ const LoginInput = styled.input`
 	&:focus {
 		box-shadow: 0 0 3pt 2pt #faaf4c;
 	}
-`
+`;
 
 const LoginButton = styled.button`
 	border-radius: 50px;
@@ -63,34 +63,34 @@ const LoginButton = styled.button`
 	background: #faaf4c;
 	color: white;
 	font-weight: 700;
-`
+`;
 
 const Login = ({ setRoomName, error }) => {
-	const [userInput, setUserInput] = useState('')
+	const [userInput, setUserInput] = useState('');
 	const submitLogin = (e) => {
-		console.log('submitLogin')
-		e?.preventDefault()
+		console.log('submitLogin');
+		e?.preventDefault();
 		if (userInput.length > 0) {
-			console.log('submitLogin')
-			setRoomName(userInput)
-			localStorage.setItem('username', userInput)
+			console.log('submitLogin');
+			setRoomName(userInput);
+			localStorage.setItem('username', userInput);
 		}
-	}
+	};
 	const handleUserName = (e) => {
-		setUserInput(e.target.value)
-	}
+		setUserInput(e.target.value);
+	};
 	return (
 		<LoginContainer>
 			<BgShapes />
 			<Title>Talarian Chat</Title>
 			<SubTitle>Welcome to your Anonymous Chat App</SubTitle>
 			<LoginForm onSubmit={submitLogin}>
-				<LoginInput placeholder='Username' onChange={handleUserName} />
+				<LoginInput placeholder='Enter Your Room' onChange={handleUserName} />
 				<LoginButton type='submit'>GO!</LoginButton>
 			</LoginForm>
 			{error && error}
 		</LoginContainer>
-	)
-}
+	);
+};
 
-export default Login
+export default Login;
