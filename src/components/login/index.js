@@ -80,15 +80,19 @@ const LoginButton = styled.button`
 	transition: 0.5s;
 `
 
+function insertParam(key, value) {
+	const url = new URL(window.location)
+	url.searchParams.set(key, value)
+	window.history.pushState({}, '', url)
+}
+
 const Login = ({ setRoomName, error }) => {
 	const [userInput, setUserInput] = useState('')
 	const submitLogin = (e) => {
-		console.log('submitLogin')
 		e?.preventDefault()
 		if (userInput.length > 0) {
-			console.log('submitLogin')
+			insertParam('roomId', 'london')
 			setRoomName(userInput)
-			localStorage.setItem('username', userInput)
 		}
 	}
 	const handleUserName = (e) => {
